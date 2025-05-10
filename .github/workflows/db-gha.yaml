@@ -1,0 +1,44 @@
+name: db-actions
+
+on: push
+
+jobs:
+  database-via-gha-service:
+    runs-on: ubuntu-latest
+
+    services:
+      oracle:
+        image: gvenzl/oracle-free:slim
+        env:
+          ORACLE_RANDOM_PASSWORD: y
+          APP_USER: test
+          APP_USER_PASSWORD: test
+        ports:
+          - 1521:1521
+        options: >-
+          --health-cmd healthcheck.sh
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install SQLcl
+        uses: gvenzl/setup-oracle-sqlcl@v1
+
+      - name: Wait for Oracle to be ready
+        run: |
+          echo "Waiting for Oracle to be ready..."
+          for i in {1..30}; do
+            echo "Attempt $i..."
+            echo "SELECT 1 FROM DUAL;" | sql test/test@localhost/FREEPDB1 && break
+            sleep 5
+          done
+
+      - name: Run script.sql
+        run: |
+          sql test/test@localhost/FREEPDB1 @script.sql
+
+
